@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Fondo circular -->
+    <path
+        android:fillColor="#007A5E"
+        android:pathData="M100,100m-95,0a95,95 0,1 1,190 0a95,95 0,1 1,-190 0"/>
+
+    <!-- Franja roja superior -->
+    <path
+        android:fillColor="#D52B1E"
+        android:pathData="M100,5 L5,60 L5,100 L100,100 L195,100 L195,60 Z"/>
+
+    <!-- Franja amarilla del medio -->
+    <path
+        android:fillColor="#FFD100"
+        android:pathData="M5,100 L195,100 L195,140 L5,140 Z"/>
+
+    <!-- Franja verde inferior -->
+    <path
+        android:fillColor="#007A33"
+        android:pathData="M5,140 L195,140 L195,180 L100,180 L5,180 Z"/>
+
+    <!-- Escudo Boliviano simplificado -->
+    <path
+        android:fillColor="#FFD100"
+        android:pathData="M100,70 L80,90 L80,120 L100,140 L120,120 L120,90 Z"/>
+
+    <!-- Cruz -->
+    <path
+        android:fillColor="#007A5E"
+        android:pathData="M95,85 L105,85 L105,95 L115,95 L115,105 L105,105 L105,125 L95,125 L95,105 L85,105 L85,95 L95,95 Z"/>
+
+</vector>

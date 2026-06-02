@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Fondo circular -->
+    <path
+        android:fillColor="#007A5E"
+        android:pathData="M54,54m-45,0a45,45 0,1 1,90 0a45,45 0,1 1,-90 0"/>
+
+    <!-- Plato y cubiertos simplificados -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 A25,25 0,1 1,54 80 A25,25 0,1 1,54 30"/>
+
+    <!-- Tenedor -->
+    <path
+        android:fillColor="#FFD100"
+        android:pathData="M25,35 L25,55 M28,35 L28,55 M31,35 L31,55 M25,55 L28,65 M28,55 L28,65"/>
+
+    <!-- Cuchara -->
+    <path
+        android:fillColor="#FFD100"
+        android:pathData="M83,35 A8,8 0,1 1,83 51 L83,65 L81,65 L81,51 A10,10 0,1 0,83 31 L83,65 L85,65 L85,51 A8,8 0,1 1,83 35"/>
+
+    <!-- Hojas de decoración -->
+    <path
+        android:fillColor="#4CAF50"
+        android:pathData="M54,15 Q60,25 54,30 Q48,25 54,15"/>
+
+</vector>

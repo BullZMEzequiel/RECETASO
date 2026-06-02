@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">RecetarioBoliviano</string>
+    <string name="inicio">Inicio</string>
+    <string name="ver_todo">Ver todo</string>
+    <string name="favoritos">Favoritos</string>
+    <string name="buscar">Buscar&#8230;</string>
+    <string name="no_hay_recetas">No se encontraron recetas</string>
+    <string name="tomar_foto">Tomar Foto</string>
+    <string name="seleccionar_galeria">Seleccionar de Galería</string>
+    <string name="titulo">Título</string>
+    <string name="departamento">Departamento</string>
+    <string name="categoria">Categoría</string>
+    <string name="ingredientes">Ingredientes</string>
+    <string name="guardar">Guardar</string>
+    <string name="eliminar">Eliminar</string>
+    <string name="registro_titulo">Registro</string>
+    <string name="nombre">Nombre</string>
+    <string name="pais">País</string>
+    <string name="registrar">Registrar</string>
+    <string name="departamentos">Departamentos</string>
+    <string name="email">Email</string>
+    <string name="password">Contraseña</string>
+    <string name="perfil">Perfil</string>
+    <string name="editar_receta">Editar Receta</string>
+</resources>
