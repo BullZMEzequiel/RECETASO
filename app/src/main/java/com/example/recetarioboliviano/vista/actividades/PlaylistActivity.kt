@@ -1,5 +1,6 @@
 package com.example.recetarioboliviano.vista.actividades
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.EditText
@@ -46,20 +47,45 @@ class PlaylistActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         adaptador = PlaylistAdapter(
-            onClick = { playlist -> /* Abrir contenido de playlist */ },
-            onEliminar = { playlist -> /* Confirmar eliminación */ }
+            onClick = { playlist -> 
+                val intent = Intent(this, AdminPlaylistDetalleActivity::class.java)
+                intent.putExtra("playlist_id", playlist.id)
+                intent.putExtra("playlist_nombre", playlist.nombre)
+                intent.putExtra("playlist_descripcion", playlist.descripcion)
+                startActivity(intent)
+            },
+            onEliminar = { playlist -> confirmarEliminacion(playlist) }
         )
         binding.rvPlaylists.layoutManager = LinearLayoutManager(this)
         binding.rvPlaylists.adapter = adaptador
     }
 
     private fun observeData() {
-        // Necesitamos un LiveData para playlists en el ViewModel
-        // viewModel.playlists.observe(this) { ... }
+        viewModel.playlists.observe(this) { playlists ->
+            if (playlists.isNullOrEmpty()) {
+                binding.tvSinPlaylists.visibility = View.VISIBLE
+                adaptador.submitList(emptyList())
+            } else {
+                binding.tvSinPlaylists.visibility = View.GONE
+                adaptador.submitList(playlists)
+            }
+        }
     }
 
     private fun cargarPlaylists() {
-        // Llamar al viewModel
+        viewModel.cargarPlaylists()
+    }
+
+    private fun confirmarEliminacion(playlist: Playlist) {
+        AlertDialog.Builder(this)
+            .setTitle("Eliminar Carpeta")
+            .setMessage("¿Estás seguro de eliminar '${playlist.nombre}'?")
+            .setPositiveButton("Eliminar") { _, _ ->
+                viewModel.eliminarPlaylist(playlist)
+                Toast.makeText(this, "Carpeta eliminada", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun setupClickListeners() {
@@ -86,16 +112,7 @@ class PlaylistActivity : AppCompatActivity() {
     }
 
     private fun crearPlaylist(nombre: String) {
-        val repository = (application as RecetarioApp).repository
-        val userId = repository.obtenerSesionActual()?.id ?: return
-        
-        val playlist = Playlist(
-            id = UUID.randomUUID().toString(),
-            nombre = nombre,
-            usuarioId = userId
-        )
-        
-        // Aquí llamaríamos al ViewModel para guardar la playlist
-        Toast.makeText(this, "Colección '$nombre' creada (Simulado)", Toast.LENGTH_SHORT).show()
+        viewModel.crearPlaylist(nombre)
+        Toast.makeText(this, "Colección '$nombre' creada", Toast.LENGTH_SHORT).show()
     }
 }

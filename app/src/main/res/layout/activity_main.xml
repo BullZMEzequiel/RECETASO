@@ -139,6 +139,16 @@
                     android:visibility="gone" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnAdmin"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="Admin"
+                    android:visibility="gone"
+                    app:icon="@drawable/ic_avatar_default" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnAgregarTop"
                     style="@style/Widget.Material3.Button.IconButton.Filled"
                     android:layout_width="48dp"

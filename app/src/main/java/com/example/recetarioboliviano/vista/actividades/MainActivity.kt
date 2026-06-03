@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import com.example.recetarioboliviano.R
 import com.example.recetarioboliviano.databinding.ActivityMainBinding
 import com.example.recetarioboliviano.modelo.entidades.Receta
+import com.example.recetarioboliviano.modelo.entidades.UserRole
 import com.example.recetarioboliviano.modelo.util.Constantes
 import com.example.recetarioboliviano.modelo.util.ImageHelper
 import com.example.recetarioboliviano.vista.adaptadores.RecetaAdapter
@@ -127,6 +128,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnAgregarTop.setOnClickListener {
             startActivity(Intent(this, RecetaFormActivity::class.java))
         }
+        
+        binding.btnAdmin.setOnClickListener {
+            startActivity(Intent(this, AdminActivity::class.java))
+        }
     }
 
     private fun setupBottomNavigation() {
@@ -167,8 +172,15 @@ class MainActivity : AppCompatActivity() {
                 binding.tvUbicacionUsuario.text = "${usuario.departamento}, ${usuario.pais}"
                 binding.tvUbicacionUsuario.visibility = View.VISIBLE
                 ImageHelper.cargarAvatar(binding.ivAvatar, usuario.avatarUri)
+                
+                // Mostrar botón de admin si el rol es ADMIN
+                binding.btnAdmin.visibility = if (usuario.role == UserRole.ADMIN) View.VISIBLE else View.GONE
+                
+                // Refrescar recetas una vez tenemos el perfil (y el userId/role)
+                recetaViewModel.cargarRecetas()
             } else {
                 binding.tvUbicacionUsuario.visibility = View.GONE
+                binding.btnAdmin.visibility = View.GONE
             }
         }
     }

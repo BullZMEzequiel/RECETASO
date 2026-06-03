@@ -12,6 +12,7 @@ data class PasoPreparacion(
     @SerialName("numero_paso")
     val numero: Int,
     @SerialName("descripcion")
-    val descripcion: String
-    // imagen_uri eliminada según nuevo esquema SQL
+    val descripcion: String,
+    @SerialName("imagen_uri")
+    val imagenUri: String? = null
 )

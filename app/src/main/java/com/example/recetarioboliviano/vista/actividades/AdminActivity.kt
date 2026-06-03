@@ -3,10 +3,13 @@ package com.example.recetarioboliviano.vista.actividades
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recetarioboliviano.databinding.ActivityAdminBinding
+import com.example.recetarioboliviano.databinding.DialogUsuarioBinding
 import com.example.recetarioboliviano.modelo.entidades.Usuario
 import com.example.recetarioboliviano.vista.adaptadores.UsuarioAdapter
 import com.example.recetarioboliviano.vistamodelo.AdminViewModel
@@ -49,7 +52,7 @@ class AdminActivity : AppCompatActivity() {
 
     private fun observeData() {
         viewModel.usuarios.observe(this) { usuarios ->
-            if (usuarios.isEmpty()) {
+            if (usuarios.isNullOrEmpty()) {
                 binding.tvVacio.visibility = View.VISIBLE
             } else {
                 binding.tvVacio.visibility = View.GONE
@@ -59,19 +62,71 @@ class AdminActivity : AppCompatActivity() {
     }
 
     private fun mostrarDetallesUsuario(usuario: Usuario) {
-        // Podríamos abrir una actividad que muestre las recetas y playlists de este usuario
-        val builder = androidx.appcompat.app.AlertDialog.Builder(this)
-        builder.setTitle("Usuario: ${usuario.nombre}")
-        builder.setMessage("¿Deseas ver el contenido de este usuario?")
-        builder.setPositiveButton("Ver Recetas") { _, _ ->
-             // Navegar a una actividad de lista de recetas filtrada por usuario
+        val isOtherAdmin = usuario.role == com.example.recetarioboliviano.modelo.entidades.UserRole.ADMIN
+        
+        val options = if (isOtherAdmin) {
+            arrayOf("Ver Perfil y Recetas (Solo lectura)")
+        } else {
+            arrayOf("Ver Perfil y Recetas", "Editar Usuario")
         }
-        builder.setNegativeButton("Cerrar", null)
-        builder.show()
+
+        AlertDialog.Builder(this)
+            .setTitle(usuario.nombre)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        val intent = Intent(this, AdminUsuarioDetalleActivity::class.java)
+                        intent.putExtra("usuario_id", usuario.id)
+                        intent.putExtra("usuario_nombre", usuario.nombre)
+                        startActivity(intent)
+                    }
+                    1 -> {
+                        if (!isOtherAdmin) mostrarDialogoUsuario(usuario)
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun mostrarDialogoUsuario(usuario: Usuario? = null) {
+        val dialogBinding = DialogUsuarioBinding.inflate(layoutInflater)
+        val isEdit = usuario != null
+        
+        if (isEdit) {
+            dialogBinding.etNombre.setText(usuario?.nombre)
+            dialogBinding.etDepartamento.setText(usuario?.departamento)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle(if (isEdit) "Editar Usuario" else "Nuevo Usuario")
+            .setView(dialogBinding.root)
+            .setPositiveButton("Guardar") { _, _ ->
+                val nombre = dialogBinding.etNombre.text.toString()
+                val depto = dialogBinding.etDepartamento.text.toString()
+                
+                if (isEdit) {
+                    val actualizado = usuario!!.copy(nombre = nombre, departamento = depto)
+                    viewModel.actualizarUsuario(actualizado)
+                } else {
+                    val nuevo = Usuario(
+                        id = java.util.UUID.randomUUID().toString(),
+                        nombre = nombre,
+                        departamento = depto
+                    )
+                    viewModel.crearUsuario(nuevo)
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun confirmarEliminarUsuario(usuario: Usuario) {
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        if (usuario.role == com.example.recetarioboliviano.modelo.entidades.UserRole.ADMIN) {
+            Toast.makeText(this, "No puedes eliminar a otro administrador", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        AlertDialog.Builder(this)
             .setTitle("Eliminar Usuario")
             .setMessage("¿Estás seguro de eliminar a ${usuario.nombre}? Esta acción no se puede deshacer y borrará todo su contenido.")
             .setPositiveButton("Eliminar") { _, _ ->
@@ -84,6 +139,10 @@ class AdminActivity : AppCompatActivity() {
         binding.btnGestionarRecetas.setOnClickListener {
             val intent = Intent(this, GestionRecetasActivity::class.java)
             startActivity(intent)
+        }
+        
+        binding.fabAddUser.setOnClickListener {
+            mostrarDialogoUsuario()
         }
     }
 }

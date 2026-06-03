@@ -44,6 +44,28 @@ class RecetaViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun eliminarPlaylist(playlist: Playlist) {
+        viewModelScope.launch {
+            try {
+                repository.eliminarPlaylist(playlist.id)
+                cargarPlaylists()
+            } catch (e: Exception) {
+                // Manejar error
+            }
+        }
+    }
+
+    fun agregarRecetaAPlaylist(playlistId: String, recetaId: String, onComplete: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                repository.agregarRecetaAPlaylist(playlistId, recetaId)
+                onComplete(true, null)
+            } catch (e: Exception) {
+                onComplete(false, e.message ?: "Error al añadir receta a la carpeta")
+            }
+        }
+    }
+
     fun crearPlaylist(nombre: String, descripcion: String? = null) {
         viewModelScope.launch {
             val userId = repository.obtenerSesionActual()?.id ?: return@launch
@@ -71,15 +93,23 @@ class RecetaViewModel(application: Application) : AndroidViewModel(application) 
                 // 2. Obtener el ID del usuario actual
                 val userId = repository.obtenerSesionActual()?.id
                 
-                // 3. Filtrar: Mostrar las del sistema (admin) O las creadas por cualquier usuario
-                // Con el nuevo esquema, mostramos SISTEMA o PRIVADA creadas por el usuario
-                val listaFiltradaVisibilidad = listaTotal.filter { receta ->
-                    receta.visibilidad == RecetaVisibilidad.SISTEMA || receta.creadoPor == userId
+                // 3. Filtrar: Admin ve TODO. Usuario ve SISTEMA o sus propias PRIVADAS.
+                val usuarioActual = repository.obtenerUsuarioActual()
+                val esAdmin = usuarioActual?.role == UserRole.ADMIN
+
+                val listaFiltradaVisibilidad = if (esAdmin) {
+                    listaTotal
+                } else {
+                    listaTotal.filter { receta ->
+                        receta.visibilidad == RecetaVisibilidad.SISTEMA || receta.creadoPor == userId
+                    }
                 }
 
                 // 4. Marcar favoritos
-                val favs = if (userId != null) repository.obtenerFavoritos(userId) else emptyList()
-                val favIds = favs.map { it.id }.toSet() // El repositorio devuelve una lista de Receta, así que it.id es el ID de la receta favorita
+                val favs = if (userId != null) {
+                    try { repository.obtenerFavoritos(userId) } catch(e: Exception) { emptyList() }
+                } else emptyList()
+                val favIds = favs.map { it.id }.toSet()
 
                 todasLasRecetas = listaFiltradaVisibilidad.map { it.copy(esFavorito = favIds.contains(it.id)) }
                 aplicarFiltros()
@@ -106,6 +136,9 @@ class RecetaViewModel(application: Application) : AndroidViewModel(application) 
 
     fun mostrarTodas() {
         soloFavoritos = false
+        busquedaActual = ""
+        categoriaActual = null
+        departamentoActual = null
         aplicarFiltros()
     }
 
@@ -118,6 +151,7 @@ class RecetaViewModel(application: Application) : AndroidViewModel(application) 
         busquedaActual = ""
         categoriaActual = null
         soloFavoritos = false
+        departamentoActual = null
         aplicarFiltros()
     }
 
@@ -151,9 +185,14 @@ class RecetaViewModel(application: Application) : AndroidViewModel(application) 
             val userId = repository.obtenerSesionActual()?.id ?: return@launch
             try {
                 repository.toggleFavorito(userId, receta.id, !receta.esFavorito)
-                cargarRecetas() // Recargar para actualizar UI
+                // En lugar de cargar todo, actualizamos localmente para más rapidez y luego sincronizamos
+                todasLasRecetas = todasLasRecetas.map { 
+                    if (it.id == receta.id) it.copy(esFavorito = !receta.esFavorito) else it 
+                }
+                aplicarFiltros()
             } catch (e: Exception) {
-                // Error
+                // Si falla en red, recargamos para estar seguros
+                cargarRecetas()
             }
         }
     }
@@ -163,14 +202,15 @@ class RecetaViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             try {
                 val receta = repository.obtenerRecetaPorId(id)
-                // Obtenemos el ID del usuario actual para marcar favorito
                 val userId = repository.obtenerSesionActual()?.id
-                val esFavorita = if (userId != null) {
-                    val favs = try { repository.obtenerFavoritos(userId) } catch(e: Exception) { emptyList() }
-                    favs.any { it.id == id }
-                } else false
                 
-                recetaLiveData.value = receta?.copy(esFavorito = esFavorita)
+                if (receta != null && userId != null) {
+                    val favs = try { repository.obtenerFavoritos(userId) } catch(e: Exception) { emptyList() }
+                    val esFavorita = favs.any { it.id == id }
+                    recetaLiveData.value = receta.copy(esFavorito = esFavorita)
+                } else {
+                    recetaLiveData.value = receta
+                }
             } catch (e: Exception) {
                 recetaLiveData.value = null
             }
@@ -225,8 +265,17 @@ class RecetaViewModel(application: Application) : AndroidViewModel(application) 
                 }
 
                 // 2. Subir imágenes de los pasos
-                // Se han eliminado las imágenes de los pasos en el nuevo esquema SQL
-                val pasosProcesados = pasos
+                val pasosProcesados = pasos.map { paso ->
+                    val imagenPasoBytes = pasosImagenes[paso.numero]
+                    if (imagenPasoBytes != null) {
+                        val fileName = "paso_${receta.id}_${paso.numero}_${System.currentTimeMillis()}.jpg"
+                        val path = "recetas/pasos/$fileName"
+                        val url = repository.subirImagen("recetas", path, imagenPasoBytes)
+                        paso.copy(imagenUri = url)
+                    } else {
+                        paso
+                    }
+                }
 
                 // 3. Preparar objeto receta
                 val recetaParaGuardar = receta.copy(
@@ -235,10 +284,21 @@ class RecetaViewModel(application: Application) : AndroidViewModel(application) 
                     creadoPor = repository.obtenerSesionActual()?.id
                 )
 
-                if (esAdmin) {
-                    repository.crearRecetaSistema(recetaParaGuardar, ingredientes, pasosProcesados)
+                // DISTINGUIR ENTRE CREAR Y ACTUALIZAR
+                val existe = try {
+                    repository.obtenerRecetaPorId(receta.id) != null
+                } catch (e: Exception) {
+                    false
+                }
+                
+                if (existe) {
+                    repository.actualizarRecetaCompleta(recetaParaGuardar, ingredientes, pasosProcesados)
                 } else {
-                    repository.crearReceta(recetaParaGuardar, ingredientes, pasosProcesados)
+                    if (esAdmin) {
+                        repository.crearRecetaSistema(recetaParaGuardar, ingredientes, pasosProcesados)
+                    } else {
+                        repository.crearReceta(recetaParaGuardar, ingredientes, pasosProcesados)
+                    }
                 }
 
                 cargarRecetas()

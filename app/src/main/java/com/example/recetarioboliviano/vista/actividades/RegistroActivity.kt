@@ -202,6 +202,7 @@ class RegistroActivity : AppCompatActivity() {
 
         viewModel.registrarUsuario(email, password, nombre, departamento) { success, error ->
             if (success) {
+                Toast.makeText(this, "Registro exitoso. Revisa tu correo para confirmar tu cuenta.", Toast.LENGTH_LONG).show()
                 // Si hay imagen, subirla
                 uriImagenSeleccionada?.let { uri ->
                     val userId = (application as com.example.recetarioboliviano.RecetarioApp).repository.obtenerSesionActual()?.id

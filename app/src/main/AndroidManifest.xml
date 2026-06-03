@@ -34,6 +34,8 @@
         <activity android:name=".vista.actividades.RecetaFormActivity" />
         <activity android:name=".vista.actividades.RecetaDetalleActivity" />
         <activity android:name=".vista.actividades.GestionRecetasActivity" />
+        <activity android:name=".vista.actividades.AdminUsuarioDetalleActivity" />
+        <activity android:name=".vista.actividades.AdminPlaylistDetalleActivity" />
         <activity android:name=".vista.actividades.PlaylistActivity" />
         <activity android:name=".vista.actividades.RecetasDepartamentoActivity" />
 

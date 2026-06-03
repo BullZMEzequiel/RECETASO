@@ -48,10 +48,17 @@ class PasoAdapter(
             binding.tvNumeroPaso.text = paso.numero.toString()
             binding.etDescripcionPaso.setText(paso.descripcion)
 
-            // Imagen desactivada según nuevo esquema SQL
-            binding.ivImagenPaso.visibility = View.GONE
-            binding.layoutAgregarImagen.visibility = View.GONE
-            binding.ivQuitarImagen.visibility = View.GONE
+            // Manejo de imagen del paso
+            if (!paso.imagenUri.isNullOrEmpty()) {
+                binding.ivImagenPaso.visibility = View.VISIBLE
+                binding.ivQuitarImagen.visibility = View.VISIBLE
+                binding.layoutAgregarImagen.visibility = View.GONE
+                ImageHelper.cargarImagen(binding.ivImagenPaso, paso.imagenUri)
+            } else {
+                binding.ivImagenPaso.visibility = View.GONE
+                binding.ivQuitarImagen.visibility = View.GONE
+                binding.layoutAgregarImagen.visibility = View.VISIBLE
+            }
 
             binding.btnEliminarPaso.setOnClickListener {
                 onEliminarPaso(paso.numero)

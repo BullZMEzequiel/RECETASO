@@ -244,4 +244,17 @@
         app:layout_anchorGravity="bottom|end"
         app:tint="@color/favorite" />
 
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btnPlaylist"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="80dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="Añadir a Carpeta"
+        android:src="@android:drawable/ic_menu_add"
+        app:backgroundTint="@color/surface"
+        app:layout_anchor="@id/appBar"
+        app:layout_anchorGravity="bottom|end"
+        app:tint="@color/primary" />
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -45,6 +45,7 @@ class RecetaFormActivity : AppCompatActivity() {
 
     // Pasos de preparación
     private val pasos = mutableListOf<PasoPreparacion>()
+    private val pasosImagenesBytes = mutableMapOf<Int, ByteArray>()
     private lateinit var pasoAdapter: PasoAdapter
     private var pasoEditandoImagen: Int = -1
 
@@ -213,19 +214,21 @@ class RecetaFormActivity : AppCompatActivity() {
     private fun actualizarImagenPaso(uriString: String) {
         val index = pasos.indexOfFirst { it.numero == pasoEditandoImagen }
         if (index != -1) {
-            // Nota: El campo imagenUri se eliminó del modelo PasoPreparacion en el nuevo esquema SQL
-            // Si necesitas mostrar la imagen temporalmente en la UI, podrías usar una lista paralela 
-            // o restaurar el campo en la entidad si decides usarlo (pero el SQL no lo tiene).
-            // Por ahora, como el SQL no tiene imagen_uri en receta_pasos, lo comentamos o manejamos aparte.
-            // pasos[index] = pasos[index].copy(imagenUri = uriString)
-            actualizarListaPasos()
+            val uri = Uri.parse(uriString)
+            val bytes = ImageHelper.optimizarImagenParaUpload(this, uri)
+            if (bytes != null) {
+                pasosImagenesBytes[pasoEditandoImagen] = bytes
+                pasos[index] = pasos[index].copy(imagenUri = uriString)
+                actualizarListaPasos()
+            }
         }
     }
 
     private fun quitarImagenPaso(numero: Int) {
         val index = pasos.indexOfFirst { it.numero == numero }
         if (index != -1) {
-            // pasos[index] = pasos[index].copy(imagenUri = null)
+            pasosImagenesBytes.remove(numero)
+            pasos[index] = pasos[index].copy(imagenUri = null)
             actualizarListaPasos()
         }
     }
@@ -278,9 +281,23 @@ class RecetaFormActivity : AppCompatActivity() {
 
     private fun eliminarPaso(numero: Int) {
         pasos.removeIf { it.numero == numero }
-        val nuevosPasos = pasos.mapIndexed { index, paso -> paso.copy(numero = index + 1) }
+        pasosImagenesBytes.remove(numero)
+        
+        // Re-indexar pasos y sus imágenes
+        val nuevasImagenes = mutableMapOf<Int, ByteArray>()
+        val nuevosPasos = pasos.mapIndexed { index, paso -> 
+            val nuevoNumero = index + 1
+            if (pasosImagenesBytes.containsKey(paso.numero)) {
+                nuevasImagenes[nuevoNumero] = pasosImagenesBytes[paso.numero]!!
+            }
+            paso.copy(numero = nuevoNumero)
+        }
+        
         pasos.clear()
         pasos.addAll(nuevosPasos)
+        pasosImagenesBytes.clear()
+        pasosImagenesBytes.putAll(nuevasImagenes)
+
         actualizarListaPasos()
     }
 
@@ -381,10 +398,7 @@ class RecetaFormActivity : AppCompatActivity() {
 
         val esAdmin = usuarioViewModel.usuarioActual.value?.role == UserRole.ADMIN
 
-        // Preparar imágenes de los pasos (Desactivado según nuevo esquema)
-        val pasosImagenes = mutableMapOf<Int, ByteArray>()
-
-        viewModel.crearReceta(receta, ingredientesList, pasos, esAdmin, imagenBytes, pasosImagenes) { success, error ->
+        viewModel.crearReceta(receta, ingredientesList, pasos, esAdmin, imagenBytes, pasosImagenesBytes) { success, error ->
             binding.btnGuardar.isEnabled = true
             binding.btnGuardar.text = "Guardar Receta"
             

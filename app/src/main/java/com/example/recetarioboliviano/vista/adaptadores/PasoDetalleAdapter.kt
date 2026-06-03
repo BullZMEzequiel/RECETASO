@@ -36,8 +36,12 @@ class PasoDetalleAdapter : ListAdapter<PasoPreparacion, PasoDetalleAdapter.PasoV
             binding.tvNumeroPaso.text = paso.numero.toString()
             binding.tvDescripcionPaso.text = paso.descripcion
 
-            // Imagen desactivada según esquema SQL
-            binding.cardImagenPaso.visibility = View.GONE
+            if (!paso.imagenUri.isNullOrEmpty()) {
+                binding.cardImagenPaso.visibility = View.VISIBLE
+                ImageHelper.cargarImagen(binding.ivImagenPaso, paso.imagenUri)
+            } else {
+                binding.cardImagenPaso.visibility = View.GONE
+            }
         }
     }
 

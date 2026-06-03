@@ -13,12 +13,14 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.recetarioboliviano.R
 import com.example.recetarioboliviano.RecetarioApp
 import com.example.recetarioboliviano.databinding.ActivityRecetaDetalleBinding
+import com.example.recetarioboliviano.modelo.entidades.UserRole
 import com.example.recetarioboliviano.modelo.entidades.PasoPreparacion
 import com.example.recetarioboliviano.modelo.entidades.Receta
 import com.example.recetarioboliviano.modelo.entidades.RecetaIngrediente
 import com.example.recetarioboliviano.modelo.util.ImageHelper
 import com.example.recetarioboliviano.vista.adaptadores.PasoDetalleAdapter
 import com.example.recetarioboliviano.vistamodelo.RecetaViewModel
+import com.example.recetarioboliviano.vistamodelo.UsuarioViewModel
 
 /**
  * Activity para mostrar los detalles de una receta.
@@ -27,6 +29,7 @@ class RecetaDetalleActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityRecetaDetalleBinding
     private val viewModel: RecetaViewModel by viewModels()
+    private val usuarioViewModel: UsuarioViewModel by viewModels()
     private lateinit var pasoAdapter: PasoDetalleAdapter
 
     private var recetaActual: Receta? = null
@@ -68,6 +71,67 @@ class RecetaDetalleActivity : AppCompatActivity() {
         binding.btnFavorito.setOnClickListener {
             onFavoritoClick()
         }
+        binding.btnPlaylist.setOnClickListener {
+            mostrarDialogoPlaylists()
+        }
+    }
+
+    private fun mostrarDialogoPlaylists() {
+        viewModel.cargarPlaylists()
+        viewModel.playlists.observe(this) { playlists ->
+            if (playlists.isNullOrEmpty()) {
+                mostrarDialogoCrearPlaylist()
+            } else {
+                val nombres = playlists.map { it.nombre }.toTypedArray()
+                val opciones = nombres + "+ Nueva Carpeta"
+                
+                AlertDialog.Builder(this)
+                    .setTitle("Guardar en Carpeta")
+                    .setItems(opciones) { _, which ->
+                        if (which < playlists.size) {
+                            val playlist = playlists[which]
+                            recetaActual?.let { receta ->
+                                viewModel.agregarRecetaAPlaylist(playlist.id, receta.id) { success, error ->
+                                    val msg = if (success) "Guardado en ${playlist.nombre}" else error
+                                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } else {
+                            mostrarDialogoCrearPlaylist()
+                        }
+                    }
+                    .show()
+            }
+        }
+    }
+
+    private fun mostrarDialogoCrearPlaylist() {
+        val input = android.widget.EditText(this)
+        input.hint = "Nombre de la carpeta"
+        val padding = (16 * resources.displayMetrics.density).toInt()
+        val container = android.widget.FrameLayout(this)
+        val params = android.widget.FrameLayout.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        params.setMargins(padding, padding / 2, padding, 0)
+        input.layoutParams = params
+        container.addView(input)
+
+        AlertDialog.Builder(this)
+            .setTitle("Nueva Carpeta")
+            .setView(container)
+            .setPositiveButton("Crear") { _, _ ->
+                val nombre = input.text.toString().trim()
+                if (nombre.isNotEmpty()) {
+                    viewModel.crearPlaylist(nombre)
+                    Toast.makeText(this, "Carpeta creada", Toast.LENGTH_SHORT).show()
+                    // Re-abrir selección después de crear (opcional)
+                    mostrarDialogoPlaylists()
+                }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun cargarReceta(recetaId: String) {
@@ -142,10 +206,13 @@ class RecetaDetalleActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        val userId = (application as RecetarioApp).repository.obtenerSesionActual()?.id
+        val currentUser = usuarioViewModel.usuarioActual.value
+        val userId = currentUser?.id
+        val esAdmin = currentUser?.role == UserRole.ADMIN
+
         return when (item.itemId) {
             R.id.action_editar -> {
-                if (recetaActual?.creadoPor == userId) {
+                if (esAdmin || recetaActual?.creadoPor == userId) {
                     val intent = Intent(this, RecetaFormActivity::class.java)
                     intent.putExtra("receta_id", recetaActual!!.id)
                     startActivity(intent)
@@ -155,7 +222,7 @@ class RecetaDetalleActivity : AppCompatActivity() {
                 true
             }
             R.id.action_eliminar -> {
-                if (recetaActual?.creadoPor == userId) {
+                if (esAdmin || recetaActual?.creadoPor == userId) {
                     confirmarEliminar()
                 } else {
                     Toast.makeText(this, "Solo puedes eliminar tus recetas", Toast.LENGTH_SHORT).show()
@@ -187,9 +254,10 @@ class RecetaDetalleActivity : AppCompatActivity() {
 
     private fun eliminarReceta() {
         recetaActual?.let { receta ->
-            val userId = (application as RecetarioApp).repository.currentUser?.id ?: ""
-            // Asumiendo que tenemos una forma de saber si es admin
-            val esAdmin = false // Deberías obtener esto del perfil del usuario actual
+            val currentUser = usuarioViewModel.usuarioActual.value
+            val userId = currentUser?.id ?: ""
+            val esAdmin = currentUser?.role == UserRole.ADMIN
+
             viewModel.eliminarReceta(receta, userId, esAdmin) { success, error ->
                 if (success) {
                     Toast.makeText(this, "Receta eliminada", Toast.LENGTH_SHORT).show()

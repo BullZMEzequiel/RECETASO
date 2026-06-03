@@ -36,7 +36,14 @@ class UsuarioViewModel(application: Application) : AndroidViewModel(application)
     fun registrarUsuario(email: String, pass: String, nombre: String, departamento: String, onComplete: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             try {
+                // Registro en Supabase Auth
                 repository.signUp(email, pass, nombre, departamento)
+                
+                // IMPORTANTE: En versiones recientes o según config, el trigger puede tardar o fallar.
+                // Forzamos una pequeña espera o verificamos.
+                // Si el usuario ya está logueado tras signUp (depende de config de Supabase):
+                obtenerPerfil()
+
                 onComplete(true, null)
             } catch (e: Exception) {
                 onComplete(false, e.message ?: "Error al registrar usuario")

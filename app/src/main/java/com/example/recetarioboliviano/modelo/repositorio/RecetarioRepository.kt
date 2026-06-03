@@ -35,7 +35,7 @@ class RecetarioRepository(
 
     suspend fun signUp(email: String, password: String, nombre: String, departamento: String) {
         try {
-            supabase.auth.signUpWith(Email) {
+            val response = supabase.auth.signUpWith(Email) {
                 this.email = email
                 this.password = password
                 data = kotlinx.serialization.json.buildJsonObject {
@@ -43,7 +43,18 @@ class RecetarioRepository(
                     put("departamento", kotlinx.serialization.json.JsonPrimitive(departamento))
                 }
             }
-            // Ya NO insertamos manualmente en 'usuarios' porque el TRIGGER de la BD se encarga.
+            
+            // Forzar inserción en tabla pública si tenemos ID, usando postgrest directamente
+            val userId = response?.id
+            if (userId != null) {
+                val usuario = Usuario(
+                    id = userId,
+                    nombre = nombre,
+                    departamento = departamento,
+                    role = UserRole.USER
+                )
+                supabase.postgrest["usuarios"].upsert(usuario)
+            }
         } catch (e: Exception) {
             if (e.message?.contains("3 seconds") == true) {
                 throw Exception("Por seguridad, espera unos segundos antes de intentar registrarte de nuevo.")
@@ -84,6 +95,10 @@ class RecetarioRepository(
         supabase.postgrest["usuarios"].upsert(usuario) {
             onConflict = "id"
         }
+    }
+
+    suspend fun crearUsuario(usuario: Usuario) {
+        supabase.postgrest["usuarios"].insert(usuario)
     }
 
     suspend fun eliminarUsuario(usuarioId: String) {
@@ -136,24 +151,52 @@ class RecetarioRepository(
             select()
         }.decodeSingle<Receta>()
 
-        val ingredientesConId = ingredientes.map { it.copy(recetaId = nuevaReceta.id) }
-        val pasosConId = pasos.map { it.copy(recetaId = nuevaReceta.id) }
-
-        if (ingredientesConId.isNotEmpty()) {
+        if (ingredientes.isNotEmpty()) {
+            val ingredientesConId = ingredientes.map { it.copy(id = java.util.UUID.randomUUID().toString(), recetaId = nuevaReceta.id) }
             supabase.postgrest["receta_ingredientes"].insert(ingredientesConId)
         }
-        if (pasosConId.isNotEmpty()) {
-            // Insertamos los pasos directamente usando la lista de objetos PasoPreparacion
-            // Supabase/Postgrest se encargará de mapear los campos según las anotaciones @SerialName
+        if (pasos.isNotEmpty()) {
+            val pasosConId = pasos.map { it.copy(id = java.util.UUID.randomUUID().toString(), recetaId = nuevaReceta.id) }
             supabase.postgrest["receta_pasos"].insert(pasosConId)
         }
     }
 
     suspend fun eliminarReceta(recetaId: String) {
+        // Al usar 'on delete cascade' en la base de datos, 
+        // borrar la receta padre borrará ingredientes y pasos automáticamente.
         supabase.postgrest["recetas"].delete {
             filter {
                 eq("id", recetaId)
             }
+        }
+    }
+
+    suspend fun actualizarRecetaCompleta(receta: Receta, ingredientes: List<RecetaIngrediente>, pasos: List<PasoPreparacion>) {
+        // 1. Actualizar la receta principal
+        supabase.postgrest["recetas"].upsert(receta) {
+            onConflict = "id"
+        }
+
+        // 2. Borrar anteriores
+        supabase.postgrest["receta_ingredientes"].delete {
+            filter { eq("receta_id", receta.id) }
+        }
+        supabase.postgrest["receta_pasos"].delete {
+            filter { eq("receta_id", receta.id) }
+        }
+
+        // 3. Insertar nuevos con IDs únicos generados en la app para evitar colisiones
+        if (ingredientes.isNotEmpty()) {
+            val ingredientesConId = ingredientes.map { 
+                it.copy(id = java.util.UUID.randomUUID().toString(), recetaId = receta.id) 
+            }
+            supabase.postgrest["receta_ingredientes"].insert(ingredientesConId)
+        }
+        if (pasos.isNotEmpty()) {
+            val pasosConId = pasos.map { 
+                it.copy(id = java.util.UUID.randomUUID().toString(), recetaId = receta.id) 
+            }
+            supabase.postgrest["receta_pasos"].insert(pasosConId)
         }
     }
 
@@ -176,7 +219,8 @@ class RecetarioRepository(
 
     suspend fun toggleFavorito(usuarioId: String, recetaId: String, esFavorito: Boolean) {
         if (esFavorito) {
-            supabase.postgrest["favoritos"].insert(Favorito(usuarioId = usuarioId, recetaId = recetaId))
+            val nuevoFavorito = Favorito(usuarioId = usuarioId, recetaId = recetaId)
+            supabase.postgrest["favoritos"].insert(nuevoFavorito)
         } else {
             supabase.postgrest["favoritos"].delete {
                 filter {
@@ -196,8 +240,32 @@ class RecetarioRepository(
         }.decodeList<Playlist>()
     }
 
+    suspend fun obtenerRecetasPlaylist(playlistId: String): List<Receta> {
+        val rels = supabase.postgrest["playlist_recetas"].select(Columns.raw("receta_id")) {
+            filter {
+                eq("playlist_id", playlistId)
+            }
+        }.decodeList<PlaylistReceta>()
+
+        if (rels.isEmpty()) return emptyList()
+
+        return supabase.postgrest["recetas"].select {
+            filter {
+                isIn("id", rels.map { it.recetaId })
+            }
+        }.decodeList<Receta>()
+    }
+
     suspend fun crearPlaylist(playlist: Playlist) {
         supabase.postgrest["playlists"].insert(playlist)
+    }
+
+    suspend fun eliminarPlaylist(playlistId: String) {
+        supabase.postgrest["playlists"].delete {
+            filter {
+                eq("id", playlistId)
+            }
+        }
     }
 
     suspend fun agregarRecetaAPlaylist(playlistId: String, recetaId: String) {
